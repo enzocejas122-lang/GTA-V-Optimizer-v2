@@ -1,0 +1,374 @@
+name: Build APK
+on:
+  push:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Crear proyecto Android
+        run: |
+          set -e
+          mkdir -p app/src/main/java/com/nahz/gamelibrary app/src/main/assets
+          best=""; bt=0
+          for f in index*.html; do
+            t=$(git log -1 --format=%ct -- "$f")
+            if [ -n "$t" ] && [ "$t" -ge "$bt" ]; then bt=$t; best="$f"; fi
+          done
+          echo "Usando: $best"
+          cp "$best" app/src/main/assets/index.html
+          cat > settings.gradle.kts <<'EOF'
+          pluginManagement {
+              repositories { google(); mavenCentral(); gradlePluginPortal() }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories { google(); mavenCentral() }
+          }
+          rootProject.name = "GameLibrary"
+          include(":app")
+          EOF
+          cat > build.gradle.kts <<'EOF'
+          plugins {
+              id("com.android.application") version "8.5.2" apply false
+              id("org.jetbrains.kotlin.android") version "1.9.24" apply false
+          }
+          EOF
+          cat > gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx2048m
+          android.useAndroidX=true
+          kotlin.code.style=official
+          EOF
+          cat > app/build.gradle.kts <<'EOF'
+          plugins {
+              id("com.android.application")
+              id("org.jetbrains.kotlin.android")
+          }
+
+          android {
+              namespace = "com.nahz.gamelibrary"
+              compileSdk = 34
+
+              signingConfigs {
+                  getByName("debug") {
+                      storeFile = file("debug.keystore")
+                      storePassword = "android"
+                      keyAlias = "androiddebugkey"
+                      keyPassword = "android"
+                      storeType = "pkcs12"
+                  }
+              }
+
+              defaultConfig {
+                  applicationId = "com.nahz.gamelibrary"
+                  minSdk = 24
+                  targetSdk = 34
+                  versionCode = 2
+                  versionName = "1.1"
+              }
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+              kotlinOptions { jvmTarget = "17" }
+          }
+
+          dependencies {
+              implementation("dev.rikka.shizuku:api:13.1.5")
+              implementation("dev.rikka.shizuku:provider:13.1.5")
+          }
+          EOF
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+              <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+              <queries>
+                  <intent>
+                      <action android:name="android.intent.action.MAIN" />
+                      <category android:name="android.intent.category.LAUNCHER" />
+                  </intent>
+              </queries>
+
+              <application
+                  android:allowBackup="true"
+                  android:label="Biblioteca de juegos"
+                  android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+
+                  <provider
+                      android:name="rikka.shizuku.ShizukuProvider"
+                      android:authorities="${applicationId}.shizuku"
+                      android:enabled="true"
+                      android:exported="true"
+                      android:multiprocess="false"
+                      android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+
+                  <activity
+                      android:name=".MainActivity"
+                      android:configChanges="orientation|screenSize|keyboardHidden"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+          cat > app/src/main/java/com/nahz/gamelibrary/MainActivity.kt <<'EOF'
+          package com.nahz.gamelibrary
+
+          import android.annotation.SuppressLint
+          import android.app.Activity
+          import android.content.Intent
+          import android.content.pm.PackageManager
+          import android.graphics.Color
+          import android.os.Bundle
+          import android.webkit.JavascriptInterface
+          import android.webkit.WebView
+          import android.webkit.WebViewClient
+          import org.json.JSONArray
+          import org.json.JSONObject
+          import rikka.shizuku.Shizuku
+          import kotlin.math.abs
+
+          class MainActivity : Activity() {
+
+              private lateinit var web: WebView
+              private val pkgRegex = Regex("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+$")
+
+              @SuppressLint("SetJavaScriptEnabled")
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  web = WebView(this)
+                  web.setBackgroundColor(Color.parseColor("#080d18"))
+                  web.settings.javaScriptEnabled = true
+                  web.settings.domStorageEnabled = true
+                  web.webViewClient = WebViewClient()
+                  web.addJavascriptInterface(Bridge(), "Android")
+                  setContentView(web)
+                  try {
+                      Shizuku.addBinderReceivedListenerSticky { notifyState() }
+                      Shizuku.addBinderDeadListener { notifyState() }
+                      Shizuku.addRequestPermissionResultListener { _, _ -> notifyState() }
+                  } catch (e: Throwable) {
+                  }
+                  web.loadUrl("file:///android_asset/index.html")
+              }
+
+              private fun notifyState() {
+                  web.post { web.evaluateJavascript("window.__shz&&window.__shz()", null) }
+              }
+
+              private fun toJs(msg: String) {
+                  web.post {
+                      web.evaluateJavascript("window.__native&&window.__native(" + JSONObject.quote(msg) + ")", null)
+                  }
+              }
+
+              private fun granted(): Boolean = try {
+                  Shizuku.pingBinder() && Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
+              } catch (e: Throwable) {
+                  false
+              }
+
+              // Ejecuta un comando con permisos de shell a traves de Shizuku (sin pasar por "sh -c").
+              private fun sh(vararg args: String): String {
+                  return try {
+                      val m = Shizuku::class.java.getDeclaredMethod(
+                          "newProcess",
+                          Array<String>::class.java,
+                          Array<String>::class.java,
+                          String::class.java
+                      )
+                      m.isAccessible = true
+                      val p = m.invoke(null, arrayOf(*args), null, null) as Process
+                      val out = p.inputStream.bufferedReader().readText()
+                      val err = p.errorStream.bufferedReader().readText()
+                      val code = p.waitFor()
+                      val txt = (out + err).trim().ifEmpty { "ok" }
+                      if (code != 0) "$txt (codigo $code)" else txt
+                  } catch (e: Throwable) {
+                      "Error: " + (e.cause?.message ?: e.message ?: e.javaClass.simpleName)
+                  }
+              }
+
+              // Resolucion (25-100 %) -> factor de reduccion del modo juego de Android.
+              private fun downscale(res: Int): String {
+                  if (res >= 95) return "disable"
+                  val v = (Math.round(res / 5.0) * 5).toInt().coerceIn(30, 90)
+                  return (v / 100.0).toString()
+              }
+
+              // FPS -> valor admitido por el modo juego (30, 45, 60, 90, 120).
+              private fun fpsToken(fps: Int): String =
+                  listOf(30, 45, 60, 90, 120).minByOrNull { abs(it - fps) }.toString()
+
+              private fun launchPkg(pkg: String): Boolean {
+                  val intent = packageManager.getLaunchIntentForPackage(pkg) ?: return false
+                  intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                  runOnUiThread { startActivity(intent) }
+                  return true
+              }
+
+              inner class Bridge {
+                  // Abre una app instalada por su paquete. Devuelve false si no existe o no tiene lanzador.
+                  @JavascriptInterface
+                  fun launch(pkg: String): Boolean = pkgRegex.matches(pkg) && launchPkg(pkg)
+
+                  // Lista las apps instaladas con lanzador: [{name, pkg}, ...]
+                  @JavascriptInterface
+                  fun apps(): String {
+                      val pm = packageManager
+                      val query = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+                      val arr = JSONArray()
+                      for (r in pm.queryIntentActivities(query, 0)) {
+                          arr.put(
+                              JSONObject()
+                                  .put("name", r.loadLabel(pm).toString())
+                                  .put("pkg", r.activityInfo.packageName)
+                          )
+                      }
+                      return arr.toString()
+                  }
+
+                  // "ok" = listo, "denied" = falta el permiso, "off" = Shizuku no esta activo.
+                  @JavascriptInterface
+                  fun shizukuState(): String = try {
+                      if (!Shizuku.pingBinder()) "off"
+                      else if (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) "ok"
+                      else "denied"
+                  } catch (e: Throwable) {
+                      "off"
+                  }
+
+                  @JavascriptInterface
+                  fun shizukuRequest() {
+                      runOnUiThread {
+                          try {
+                              Shizuku.requestPermission(100)
+                          } catch (e: Throwable) {
+                          }
+                      }
+                  }
+
+                  // Aplica resolucion y FPS al juego (modo juego de Android) y lo abre.
+                  @JavascriptInterface
+                  fun applyAndLaunch(pkg: String, fps: Int, res: Int) {
+                      if (!pkgRegex.matches(pkg)) {
+                          toJs("Paquete no valido")
+                          return
+                      }
+                      Thread {
+                          val log = StringBuilder()
+                          if (!granted()) {
+                              log.append("Shizuku no esta conectado: se abre sin aplicar ajustes.\n")
+                          } else {
+                              val ds = downscale(res)
+                              val f = fpsToken(fps)
+                              var r = sh("cmd", "game", "set", "--mode", "performance", "--downscale", ds, "--fps", f, pkg)
+                              if (r.contains("rror") || r.contains("xception") || r.contains("nknown")) {
+                                  log.append("set (performance): $r\n")
+                                  r = sh("cmd", "game", "set", "--mode", "2", "--downscale", ds, "--fps", f, pkg)
+                              }
+                              log.append("set: $r\n")
+                              log.append("mode: " + sh("cmd", "game", "mode", "performance", pkg) + "\n")
+                              log.append("config: " + sh("cmd", "game", "list-configs", pkg) + "\n")
+                              log.append("pedido: reduccion $ds, FPS $f\n")
+                          }
+                          log.append(if (launchPkg(pkg)) "Abriendo el juego..." else "No encontre ese juego instalado")
+                          toJs(log.toString().take(700))
+                      }.start()
+                  }
+
+                  // Quita lo aplicado al juego en el sistema.
+                  @JavascriptInterface
+                  fun resetGame(pkg: String) {
+                      if (!pkgRegex.matches(pkg)) {
+                          toJs("Paquete no valido")
+                          return
+                      }
+                      Thread { toJs("reset: " + sh("cmd", "game", "reset", pkg)) }.start()
+                  }
+              }
+          }
+          EOF
+          base64 -d > app/debug.keystore <<'B64'
+          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
+          B64
+
+      - name: SDK de Android
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0" || true
+      - name: Compilar
+        run: gradle assembleDebug --no-daemon
+      - name: Preparar APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk GameLibrary.apk
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Biblioteca de juegos (última versión)
+          files: GameLibrary.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GameLibrary-APK
+          path: GameLibrary.apk

@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#080d18">
+<title>Biblioteca de juegos</title>
+<style>
+:root{--bg:#080d18;--line:#243650;--text:#edf4ff;--muted:#91a4bf;--cyan:#55e0df;--orange:#ffbd69}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;min-height:100vh;background:radial-gradient(1000px 500px at 80% -10%,#15365b 0%,transparent 55%),var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:820px;margin:auto;padding:calc(18px + env(safe-area-inset-top,0px)) 14px calc(50px + env(safe-area-inset-bottom,0px))}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:20px}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{width:44px;height:44px;border-radius:13px;background:linear-gradient(135deg,#168bdb,#5be0df);display:grid;place-items:center;color:#04111d;font-size:22px;font-weight:900}
+.eyebrow{color:var(--cyan);font-size:11px;letter-spacing:2px;font-weight:800}
+h1{font-size:18px;line-height:1.1;margin:3px 0 0}
+.status{border:1px solid #31506b;color:#a9c4df;border-radius:999px;padding:6px 10px;font-size:11px;white-space:nowrap}
+button{border:0;border-radius:12px;padding:12px 16px;font:800 13px/1.2 inherit;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.primary{background:linear-gradient(135deg,#52c6ff,#47e0d0);color:#051522;box-shadow:0 8px 24px #36b9e544}
+.secondary{background:#1a2d45;color:#e8f3ff;border:1px solid #35516f}
+.warn{background:#392b1c;color:#ffd49c;border:1px solid #77542e}
+.danger{background:#3b202c;color:#ffc0ca;border:1px solid #703747}
+.big{width:100%;padding:15px;font-size:15px}
+.lib{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:14px}
+.game{background:linear-gradient(180deg,#111d30,#0e1929);border:2px solid var(--line);border-radius:18px;padding:14px;text-align:left;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:10px;color:var(--text)}
+.game.on{border-color:var(--cyan);box-shadow:0 0 0 3px #55e0df22}
+.game.add{border-style:dashed;align-items:center;justify-content:center;color:var(--cyan);min-height:118px;font-size:14px}
+.gicon{width:46px;height:46px;border-radius:13px;display:grid;place-items:center;font-weight:900;font-size:22px;color:#04111d;flex:none}
+.gname{font-size:15px;font-weight:800}.gmeta{font-size:11px;color:var(--muted);font-weight:500}
+.card{background:linear-gradient(180deg,#111d30,#0e1929);border:1px solid var(--line);border-radius:18px;padding:17px;margin-bottom:14px}
+.dhead{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.dhead h2{font-size:20px;margin:0;line-height:1.2}
+.sub{font-size:12px;color:var(--muted)}
+.field{margin:14px 0}
+.field label{display:flex;justify-content:space-between;gap:12px;font-size:13px;font-weight:700;margin-bottom:7px}
+.field input[type=range]{width:100%;accent-color:var(--cyan)}
+select,input[type=text]{width:100%;background:#091321;border:1px solid #2b405c;color:var(--text);border-radius:10px;padding:11px;font:inherit;outline:none}
+.row{display:flex;gap:10px;flex-wrap:wrap}.row>*{flex:1;min-width:130px}
+.preset{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:14px}
+.note{background:#17283b;border-left:3px solid var(--orange);padding:11px 13px;border-radius:8px;color:#c3d1e2;font-size:12px;margin-top:14px}
+h3{font-size:15px;margin:0 0 4px}
+.footer{text-align:center;color:#71859e;font-size:11px;padding:16px 8px}
+.toast{position:fixed;bottom:calc(18px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:#e9f7ff;color:#061522;padding:11px 16px;border-radius:12px;font-weight:700;font-size:12px;box-shadow:0 10px 35px #0008;display:none;z-index:10;max-width:90%;text-align:center}
+.log{white-space:pre-wrap;word-break:break-word;background:#091321;border:1px solid #2b405c;border-radius:10px;padding:10px;font:11px/1.45 ui-monospace,monospace;color:#b8cbe0;margin:12px 0 0;max-height:200px;overflow:auto}
+.plist{max-height:50vh;overflow:auto;display:flex;flex-direction:column;gap:6px}.pk{flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:left}.pk small{color:var(--muted);font-weight:500}
+@media(max-width:520px){.status{display:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+ <header class="top">
+  <div class="brand"><div class="logo">▦</div><div><div class="eyebrow">GAME LIBRARY</div><h1>Biblioteca de juegos</h1></div></div>
+  <div class="status" id="saved">● Guardado automático</div>
+ </header>
+
+ <div id="grid" class="lib"></div>
+
+ <section class="card" id="addBox" hidden>
+  <h3>Agregar juego</h3><p class="sub">Cada juego nuevo tiene su propio perfil independiente.</p>
+  <div class="field"><label>Nombre</label><input id="newName" type="text" maxlength="30" placeholder="Ej.: Free Fire" autocomplete="off"></div>
+  <div class="field"><label>Identificador de paquete (opcional)</label><input id="newPkg" type="text" placeholder="Ej.: com.empresa.juego" autocomplete="off" autocapitalize="off"></div>
+  <button class="secondary" id="pickNew" hidden style="width:100%;margin-bottom:10px">Elegir de mis apps instaladas</button>
+  <div class="row"><button class="primary" id="addOk">Agregar a la biblioteca</button><button class="secondary" id="addCancel">Cancelar</button></div>
+ </section>
+
+ <section class="card" id="picker" hidden>
+  <h3>Apps instaladas</h3><p class="sub">Tocá el juego para vincularlo.</p>
+  <div class="field"><input id="pickQ" type="text" placeholder="Buscar…" autocomplete="off"></div>
+  <div class="plist" id="pickList"></div>
+  <button class="secondary" id="pickClose" style="margin-top:10px;width:100%">Cerrar</button>
+ </section>
+
+ <section class="card" id="detail">
+  <div class="dhead"><div class="gicon" id="dIcon"></div><div><h2 id="dName"></h2><div class="sub" id="dProfile"></div></div></div>
+  <button class="primary big" id="openBtn">▶ ABRIR JUEGO</button>
+  <div class="field"><label>Identificador de paquete</label><input id="pkg" type="text" placeholder="Ej.: com.empresa.juego" autocomplete="off" autocapitalize="off"></div>
+  <button class="secondary" id="pickPkg" hidden style="width:100%">Elegir de mis apps instaladas</button>
+  <div class="field" id="linkField"><label>Enlace de apertura (opcional)</label><input id="link" type="text" placeholder="Ej.: roblox://" autocomplete="off" autocapitalize="off"></div>
+
+  <div class="preset">
+   <button class="secondary" data-p="quality">Calidad</button>
+   <button class="secondary" data-p="balanced">Equilibrado</button>
+   <button class="secondary" data-p="performance">Rendimiento</button>
+   <button class="secondary" data-p="minimal">Mínimos</button>
+  </div>
+  <div class="field"><label>Objetivo de FPS <strong id="fpsVal"></strong></label><input id="fps" type="range" min="20" max="120" step="5"></div>
+  <div class="field"><label>Escala de resolución <strong id="resVal"></strong></label><input id="res" type="range" min="25" max="100" step="5"></div>
+  <div class="field"><label>Calidad de sombras (referencia)</label><select id="shadows"><option value="off">Desactivadas</option><option value="low">Baja</option><option value="medium">Media</option><option value="high">Alta</option></select></div>
+  <div class="field"><label>Calidad de texturas (referencia)</label><select id="textures"><option value="low">Baja</option><option value="medium">Media</option><option value="high">Alta</option></select></div>
+  <div class="field" id="shz" hidden><label>Shizuku <strong id="shzState"></strong></label>
+   <button class="secondary" id="shzBtn" style="width:100%">Reintentar</button>
+   <button class="secondary" id="shzReset" hidden style="width:100%;margin-top:8px">Quitar ajustes aplicados a este juego</button></div>
+  <pre class="log" id="log" hidden></pre>
+  <div class="note" id="note">Los ajustes quedan guardados en el perfil de este juego. Desde una página HTML no se pueden aplicar dentro de otra app: usalos como referencia al configurar el juego.</div>
+  <div class="row" style="margin-top:14px"><button class="warn" id="resetBtn">Restablecer perfil</button><button class="danger" id="delBtn">Eliminar juego</button></div>
+ </section>
+
+ <section class="card">
+  <h3>Copia de seguridad</h3><p class="sub">Exportá o importá toda la biblioteca con sus perfiles.</p>
+  <div class="row"><button class="secondary" id="exportBtn">Exportar JSON</button><button class="secondary" id="importBtn">Importar JSON</button></div>
+  <input id="importFile" type="file" accept=".json,application/json" hidden>
+ </section>
+ <div class="footer">Prototipo HTML independiente · No afiliado a ninguna de las marcas mencionadas</div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $=id=>document.getElementById(id),KEY='gameLibrary.v1';
+const SH=['off','low','medium','high'],TX=['low','medium','high'];
+const PRESETS={
+ quality:{fps:60,res:100,shadows:'high',textures:'high'},
+ balanced:{fps:60,res:80,shadows:'medium',textures:'medium'},
+ performance:{fps:60,res:60,shadows:'low',textures:'low'},
+ minimal:{fps:30,res:40,shadows:'off',textures:'low'}
+};
+const PNAME={quality:'Calidad',balanced:'Equilibrado',performance:'Rendimiento',minimal:'Mínimos'};
+const DEFAULTS=()=>[
+ {id:'gtav',name:'GTA V',pkg:'',icon:'V',hue:205,s:{fps:30,res:60,shadows:'low',textures:'low'}},
+ {id:'minecraft',name:'Minecraft',pkg:'com.mojang.minecraftpe',icon:'M',hue:130,s:{...PRESETS.balanced}},
+ {id:'roblox',name:'Roblox',pkg:'com.roblox.client',icon:'R',hue:355,s:{...PRESETS.performance}},
+ {id:'cod',name:'COD Mobile',pkg:'com.activision.callofduty.shooter',icon:'C',hue:35,s:{fps:60,res:75,shadows:'low',textures:'medium'}}
+];
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+const clamp=(v,a,b,d)=>{v=+v;return isFinite(v)?Math.min(b,Math.max(a,v)):d};
+const pick=(v,l,d)=>l.includes(v)?v:d;
+const grad=h=>`linear-gradient(135deg,hsl(${h} 80% 60%),hsl(${(h+40)%360} 80% 65%))`;
+function clean(g){
+ if(!g||typeof g.name!=='string')return null;const s=g.s||{};
+ return{id:String(g.id||'c'+Math.random().toString(36).slice(2)),name:g.name.trim().slice(0,30)||'Juego',
+  pkg:typeof g.pkg==='string'?g.pkg.trim().slice(0,150):'',
+  link:typeof g.link==='string'?g.link.trim().slice(0,200):'',
+  icon:String(g.icon||g.name[0]||'?').slice(0,2).toUpperCase(),hue:clamp(g.hue,0,360,200),custom:!!g.custom,
+  s:{fps:clamp(s.fps,20,120,60),res:clamp(s.res,25,100,75),shadows:pick(s.shadows,SH,'low'),textures:pick(s.textures,TX,'medium')}};
+}
+function load(){
+ try{const d=JSON.parse(localStorage.getItem(KEY));const games=(d.games||[]).map(clean).filter(Boolean);
+  if(games.length)return{games,sel:games.some(g=>g.id===d.sel)?d.sel:games[0].id}}catch(e){}
+ const games=DEFAULTS().map(clean);return{games,sel:games[0].id};
+}
+let st=load(),savedTimer;
+const cur=()=>st.games.find(g=>g.id===st.sel)||st.games[0];
+function save(){
+ const el=$('saved');
+ try{localStorage.setItem(KEY,JSON.stringify(st));el.textContent='✓ Guardado'}catch(e){el.textContent='⚠ No se pudo guardar'}
+ clearTimeout(savedTimer);savedTimer=setTimeout(()=>el.textContent='● Guardado automático',1400);
+}
+function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(window._tt);window._tt=setTimeout(()=>t.style.display='none',3000)}
+function presetName(s){for(const k in PRESETS){const p=PRESETS[k];if(p.fps===s.fps&&p.res===s.res&&p.shadows===s.shadows&&p.textures===s.textures)return PNAME[k]}return 'Personalizado'}
+
+function renderGrid(){
+ const grid=$('grid');grid.innerHTML='';
+ st.games.forEach(g=>{
+  const b=document.createElement('button');b.className='game'+(g.id===st.sel?' on':'');
+  b.innerHTML=`<div class="gicon" style="background:${grad(g.hue)}">${esc(g.icon)}</div><div><div class="gname">${esc(g.name)}</div><div class="gmeta">${g.s.fps} FPS · ${g.s.res}% · ${presetName(g.s)}</div></div>`;
+  b.onclick=()=>{st.sel=g.id;save();renderGrid();fillDetail()};
+  grid.appendChild(b);
+ });
+ const add=document.createElement('button');add.className='game add';add.textContent='＋ Agregar juego';
+ add.onclick=()=>{$('addBox').hidden=false;$('newName').focus();$('addBox').scrollIntoView({behavior:'smooth',block:'center'})};
+ grid.appendChild(add);
+}
+function labels(){
+ const g=cur();$('fpsVal').textContent=g.s.fps+' FPS';$('resVal').textContent=g.s.res+'%';
+ $('dProfile').textContent='Perfil: '+presetName(g.s);
+}
+function fillDetail(){
+ const g=cur(),i=$('dIcon');
+ i.textContent=g.icon;i.style.background=grad(g.hue);$('dName').textContent=g.name;
+ $('openBtn').textContent='▶ ABRIR '+g.name.toUpperCase();
+ $('pkg').value=g.pkg;$('link').value=g.link;
+ ['fps','res','shadows','textures'].forEach(k=>$(k).value=g.s[k]);
+ $('delBtn').hidden=!g.custom;
+ labels();
+}
+function changed(){labels();renderGrid();save()}
+['fps','res','shadows','textures'].forEach(k=>$(k).addEventListener('input',()=>{
+ cur().s[k]=(k==='shadows'||k==='textures')?$(k).value:+$(k).value;changed();
+}));
+$('pkg').addEventListener('input',()=>{cur().pkg=$('pkg').value.trim();save()});
+$('link').addEventListener('input',()=>{cur().link=$('link').value.trim();save()});
+document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{
+ Object.assign(cur().s,PRESETS[b.dataset.p]);fillDetail();renderGrid();save();toast('Perfil '+PNAME[b.dataset.p]+' aplicado a '+cur().name);
+});
+$('resetBtn').onclick=()=>{
+ const g=cur(),d=DEFAULTS().find(x=>x.id===g.id);
+ g.s=d?{...d.s}:{...PRESETS.balanced};fillDetail();renderGrid();save();toast('Perfil restablecido');
+};
+$('delBtn').onclick=()=>{
+ const g=cur();if(!g.custom||!confirm('¿Eliminar '+g.name+' y su perfil?'))return;
+ st.games=st.games.filter(x=>x.id!==g.id);st.sel=st.games[0].id;save();renderGrid();fillDetail();toast('Juego eliminado');
+};
+$('addOk').onclick=()=>{
+ const name=$('newName').value.trim(),pkg=$('newPkg').value.trim();
+ if(!name){toast('Escribí el nombre del juego');$('newName').focus();return}
+ let h=0;for(const c of name)h=(h*31+c.charCodeAt(0))%360;
+ const g=clean({id:'c'+Date.now(),name,pkg,icon:name[0],hue:h,custom:true,s:PRESETS.balanced});
+ st.games.push(g);st.sel=g.id;save();
+ $('newName').value='';$('newPkg').value='';$('addBox').hidden=true;
+ renderGrid();fillDetail();$('detail').scrollIntoView({behavior:'smooth'});toast(g.name+' agregado');
+};
+$('addCancel').onclick=()=>{$('addBox').hidden=true};
+$('openBtn').onclick=()=>{
+ const g=cur();
+ if(NATIVE){
+  if(!g.pkg){toast('Elegí el juego de tus apps instaladas');return}
+  if(window._shz==='ok'){toast('Aplicando ajustes…');Android.applyAndLaunch(g.pkg,g.s.fps,g.s.res);return}
+  toast(Android.launch(g.pkg)?'Abierto sin ajustes: Shizuku no está conectado':'No encontré ese juego instalado. Elegilo de la lista');return;
+ }
+ if(g.link){
+  if(!/^[a-z][a-z0-9+.\-]*:\/\/\S*$/i.test(g.link)||/^(javascript|data|file|blob|vbscript|https?):/i.test(g.link)){toast('El enlace debe ser tipo nombre://… (no una web)');return}
+  toast('Abriendo '+g.name+'…');location.href=g.link;return;
+ }
+ if(!g.pkg){toast('Ingresá el paquete de '+g.name+' para poder abrirlo');$('pkg').focus();return}
+ if(!/^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)+$/.test(g.pkg)){toast('El identificador del paquete no parece válido');return}
+ toast('Abriendo '+g.name+'…');
+ let left=false;const onHide=()=>{if(document.hidden)left=true};
+ document.addEventListener('visibilitychange',onHide);
+ setTimeout(()=>{document.removeEventListener('visibilitychange',onHide);if(!left)toast('No se pudo abrir. Revisá que el paquete sea el real y que el juego esté instalado')},1800);
+ location.href='intent://#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package='+g.pkg+';end';
+};
+$('exportBtn').onclick=()=>{
+ const b=new Blob([JSON.stringify({version:1,...st},null,2)],{type:'application/json'}),u=URL.createObjectURL(b),a=document.createElement('a');
+ a.href=u;a.download='biblioteca-juegos.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1000);
+};
+$('importBtn').onclick=()=>$('importFile').click();
+$('importFile').onchange=async e=>{
+ const f=e.target.files[0];if(!f)return;
+ try{const d=JSON.parse(await f.text());const games=(d.games||[]).map(clean).filter(Boolean);
+  if(!games.length)throw 0;
+  st={games,sel:games.some(g=>g.id===d.sel)?d.sel:games[0].id};save();renderGrid();fillDetail();toast('Biblioteca importada');
+ }catch(err){toast('El JSON no es válido')}
+ e.target.value='';
+};
+const NATIVE=typeof window.Android!=='undefined';
+let pickCb=null,apps=[];
+function renderPick(){
+ const q=$('pickQ').value.trim().toLowerCase(),box=$('pickList');box.innerHTML='';
+ apps.filter(a=>!q||a.name.toLowerCase().includes(q)||a.pkg.toLowerCase().includes(q)).forEach(a=>{
+  const b=document.createElement('button');b.className='secondary pk';
+  b.innerHTML=`<span>${esc(a.name)}</span><small>${esc(a.pkg)}</small>`;
+  b.onclick=()=>{$('picker').hidden=true;if(pickCb)pickCb(a)};box.appendChild(b);
+ });
+}
+function openPicker(cb){
+ try{apps=JSON.parse(Android.apps())}catch(e){apps=[]}
+ apps.sort((a,b)=>a.name.localeCompare(b.name));
+ pickCb=cb;$('pickQ').value='';renderPick();$('picker').hidden=false;$('picker').scrollIntoView({behavior:'smooth'});
+}
+$('pickQ').addEventListener('input',renderPick);
+$('pickClose').onclick=()=>{$('picker').hidden=true};
+$('pickPkg').onclick=()=>openPicker(a=>{const g=cur();g.pkg=a.pkg;$('pkg').value=a.pkg;save();toast(a.name+' vinculado a '+g.name)});
+$('pickNew').onclick=()=>openPicker(a=>{$('newName').value=a.name;$('newPkg').value=a.pkg;$('addBox').scrollIntoView({behavior:'smooth',block:'center'})});
+function shzRefresh(){
+ let s='off';try{s=Android.shizukuState()}catch(e){}
+ window._shz=s;
+ $('shzState').textContent=s==='ok'?'conectado':s==='denied'?'falta el permiso':'no está activo';
+ $('shzBtn').hidden=s==='ok';
+ $('shzBtn').textContent=s==='denied'?'Dar permiso a la app':'Reintentar';
+ $('shzReset').hidden=s!=='ok';
+}
+window.__shz=()=>{if(NATIVE)shzRefresh()};
+window.__native=m=>{const l=$('log');l.textContent=m;l.hidden=false;l.scrollIntoView({behavior:'smooth',block:'nearest'})};
+$('shzBtn').onclick=()=>{if(window._shz==='denied')Android.shizukuRequest();else shzRefresh()};
+$('shzReset').onclick=()=>Android.resetGame(cur().pkg);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&NATIVE)shzRefresh()});
+if(NATIVE){
+ $('pickPkg').hidden=false;$('pickNew').hidden=false;$('linkField').hidden=true;$('shz').hidden=false;shzRefresh();
+ $('note').textContent='Resolución y FPS se aplican al abrir el juego desde esta app, con Shizuku (modo juego de Android, si tu teléfono lo soporta). Sombras y texturas se ajustan dentro del juego: acá quedan como referencia.';
+}
+renderGrid();fillDetail();
+</script>
+</body>
+</html>
